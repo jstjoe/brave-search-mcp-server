@@ -10,6 +10,7 @@ const typeToPathMap: Record<keyof Endpoints, string> = {
   videos: '/res/v1/videos/search',
   web: '/res/v1/web/search',
   summarizer: '/res/v1/summarizer/search',
+  llmContext: '/res/v1/llm/context',
 };
 
 const getDefaultRequestHeaders = (): Record<string, string> => {
@@ -90,14 +91,15 @@ async function issueRequest<T extends keyof Endpoints>(
       continue;
     }
 
-    if (value !== undefined) {
+    if (value !== undefined && value !== null) {
       queryParams.set(key === 'query' ? 'q' : key, value.toString());
     }
   }
 
   // Issue Request
   const urlWithParams = url.toString() + '?' + queryParams.toString();
-  const headers = { ...getDefaultRequestHeaders(), ...requestHeaders } as Headers;
+  const headers = new Headers({ ...getDefaultRequestHeaders(), ...requestHeaders } as HeadersInit);
+
   const response = await fetch(urlWithParams, { headers });
 
   // Handle Error
