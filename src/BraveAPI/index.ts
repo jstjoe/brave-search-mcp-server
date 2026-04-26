@@ -108,7 +108,11 @@ async function issueRequest<T extends keyof Endpoints>(
 
   // Issue Request
   const urlWithParams = url.toString() + '?' + queryParams.toString();
-  const headers = new Headers({ ...getDefaultRequestHeaders(), ...requestHeaders } as HeadersInit);
+  const headers = new Headers(getDefaultRequestHeaders());
+  for (const [key, value] of Object.entries(requestHeaders)) {
+    if (value === undefined || value === null) continue;
+    headers.set(key, String(value));
+  }
 
   const response = await fetch(urlWithParams, { headers });
 
