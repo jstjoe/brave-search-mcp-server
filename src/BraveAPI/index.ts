@@ -1,5 +1,6 @@
 import type { Endpoints } from './types.js';
 import config from '../config.js';
+import { deidentify } from '../Skyflow/index.js';
 import { stringify } from '../utils.js';
 
 const typeToPathMap: Record<keyof Endpoints, string> = {
@@ -52,6 +53,32 @@ async function issueRequest<T extends keyof Endpoints>(
   // Determine URL, and setup parameters
   const url = new URL(`https://api.search.brave.com${typeToPathMap[endpoint]}`);
   const queryParams = new URLSearchParams();
+
+  // Sanitize free-text query via Skyflow Detect before serialization.
+  // Only applies when a `query` field is present (skips summarizer's `key`,
+  // local POI lookups by `ids`, etc.).
+  if (
+    config.skyflowDeidentify &&
+    parameters &&
+    typeof (parameters as Record<string, unknown>).query === 'string' &&
+    ((parameters as Record<string, unknown>).query as string).length > 0
+  ) {
+    const original = (parameters as Record<string, unknown>).query as string;
+    try {
+      const sanitized = await deidentify(original);
+      parameters = { ...parameters, query: sanitized } as typeof parameters;
+    } catch (err) {
+      if (config.skyflowFailOpen) {
+        console.warn(
+          `Skyflow de-identification failed; forwarding original query (fail-open): ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      } else {
+        throw err;
+      }
+    }
+  }
 
   // TODO (Sampson): Move param-construction/validation to modules
   for (const [key, value] of Object.entries(parameters)) {
