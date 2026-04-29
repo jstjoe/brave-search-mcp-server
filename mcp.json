@@ -1,0 +1,9 @@
+{
+    "sky-dev-mcp": {
+      "type": "http",
+      "url": "https://skyflow-mcp.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${SKYFLOW_BEARER_TOKEN}"
+      }
+    }
+}
