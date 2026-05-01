@@ -1,5 +1,6 @@
 import type { Endpoints } from './types.js';
 import config from '../config.js';
+import { deidentify } from '../Skyflow/index.js';
 import { stringify } from '../utils.js';
 
 const typeToPathMap: Record<keyof Endpoints, string> = {
@@ -52,6 +53,41 @@ async function issueRequest<T extends keyof Endpoints>(
   // Determine URL, and setup parameters
   const url = new URL(`https://api.search.brave.com${typeToPathMap[endpoint]}`);
   const queryParams = new URLSearchParams();
+
+  const debug = config.loggingLevel === 'debug';
+
+  // Sanitize free-text query via Skyflow Detect before serialization.
+  // Only applies when a `query` field is present (skips summarizer's `key`,
+  // local POI lookups by `ids`, etc.).
+  if (
+    config.skyflowDeidentify &&
+    parameters &&
+    typeof (parameters as Record<string, unknown>).query === 'string' &&
+    ((parameters as Record<string, unknown>).query as string).length > 0
+  ) {
+    const original = (parameters as Record<string, unknown>).query as string;
+    try {
+      const sanitized = await deidentify(original);
+      if (debug) {
+        console.error(
+          `[brave-mcp:debug] skyflow deidentify endpoint=${endpoint} original=${JSON.stringify(
+            original
+          )} sanitized=${JSON.stringify(sanitized)}`
+        );
+      }
+      parameters = { ...parameters, query: sanitized } as typeof parameters;
+    } catch (err) {
+      if (config.skyflowFailOpen) {
+        console.warn(
+          `Skyflow de-identification failed; forwarding original query (fail-open): ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      } else {
+        throw err;
+      }
+    }
+  }
 
   // TODO (Sampson): Move param-construction/validation to modules
   for (const [key, value] of Object.entries(parameters)) {
@@ -114,7 +150,28 @@ async function issueRequest<T extends keyof Endpoints>(
     headers.set(key, String(value));
   }
 
+  if (debug) {
+    const headerDump = Object.fromEntries(
+      [...headers.entries()].map(([k, v]) =>
+        k.toLowerCase() === 'x-subscription-token' ? [k, '<redacted>'] : [k, v]
+      )
+    );
+    console.error(
+      `[brave-mcp:debug] outbound endpoint=${endpoint} url=${urlWithParams} headers=${JSON.stringify(
+        headerDump
+      )}`
+    );
+  }
+
+  const started = debug ? Date.now() : 0;
   const response = await fetch(urlWithParams, { headers });
+  if (debug) {
+    console.error(
+      `[brave-mcp:debug] response endpoint=${endpoint} status=${response.status} duration_ms=${
+        Date.now() - started
+      }`
+    );
+  }
 
   // Handle Error
   if (!response.ok) {

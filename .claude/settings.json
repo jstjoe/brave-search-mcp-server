@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__sky-dev-mcp__ask_docs"
+    ]
+  }
+}

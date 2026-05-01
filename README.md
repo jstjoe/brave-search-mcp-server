@@ -365,6 +365,20 @@ STDIO is the default mode. For HTTP mode testing, add `--transport http` to the 
 - `npm run smithery:build`: Build the project for smithery.ai
 - `npm run smithery:dev`: Launch the development environment for smithery.ai
 
+### Skyflow Startup Procedure
+
+Start the server locally:
+
+```sh
+node dist/index.js --transport http --port 8080 --skyflow-deidentify true --logging-level debug
+```
+
+Start the inspector for testing:
+
+```sh
+npx @modelcontextprotocol/inspector 
+```
+
 ### Docker Compose
 
 For local development with Docker:
